@@ -6,6 +6,7 @@
     GetDefaultParadigmPath,
     BrowseDirectory,
     AddCustomParadigm,
+    BrowserOpenURL,
   } from "../wailsjs/go/main/App.js";
 
   let paradigmVersions = [];
@@ -81,8 +82,8 @@
     const root = document.documentElement;
     root.setAttribute("data-theme", darkMode ? "dark" : "light");
     root.style.backgroundColor = darkMode
-      ? "rgba(0, 0, 0, 0.05)"
-      : "rgba(255, 255, 255, 0.05)";
+      ? "rgba(0, 0, 0, 0.1)"
+      : "rgba(255, 255, 255, 0.1)";
     root.style.color = darkMode ? "#f0f0f0" : "#333";
   }
 
@@ -107,7 +108,7 @@
       } else {
         showMessage(
           `Found ${paradigmVersions.length} Paradigm versions!`,
-          2000
+          3000
         );
         // Auto-select the first version
         selectedVersion = paradigmVersions[0];
@@ -219,7 +220,7 @@
 
       const success = await LaunchParadigm(String(executablePath));
       if (success) {
-        showMessage("Paradigm launched successfully!", 500);
+        showMessage("Paradigm launched successfully!", 1500);
         // Close the launcher after successful launch
         setTimeout(() => {
           window.close();
@@ -390,20 +391,41 @@
               disabled={!selectedVersion.executablePath}
             >
               Launch
-              <span class="enter-icon">↵</span>
+              <span class="enter-icon">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M9 10l-5 5 5 5" />
+                  <path d="M20 4v7a4 4 0 01-4 4H4" />
+                </svg>
+              </span>
             </button>
           </div>
 
           {#if selectedVersion}
-            <div class="version-details">
-              <div class="path">
-                {selectedVersion.path || "Unknown path"}
-              </div>
+            <div
+              class="path"
+              on:click={() =>
+                BrowserOpenURL(
+                  `file:///${selectedVersion.path.replace(/\\/g, "/")}`
+                )}
+              title="Open in File Explorer"
+            >
+              <code>{selectedVersion.path || "Unknown path"}</code>
             </div>
           {/if}
 
           {#if message}
-            <div class="message">{message}</div>
+            <div class="toast" class:fade-out={messageTempId !== null}>
+              {message}
+            </div>
           {/if}
         </div>
       {:else}
@@ -538,51 +560,27 @@
 
 <style>
   :root {
-    /* Light Mode Variables */
-    --bg-color: rgba(255, 255, 255, 0.05);
-    --text-color: #333;
-    --card-bg: rgba(255, 255, 255, 0.1);
-    --card-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-    --menu-bg: rgba(255, 255, 255, 0.05);
-    --menu-border: rgba(255, 255, 255, 0.1);
-    --accent-color: #3b3b8c;
-    --launch-btn-bg: #27ae60;
-    --launch-btn-hover: #219653;
-    --input-bg: rgba(255, 255, 255, 0.1);
-    --input-border: rgba(255, 255, 255, 0.2);
-    --modal-overlay: rgba(0, 0, 0, 0.5);
-    --path-bg: rgba(255, 255, 255, 0.05);
-    --separator-color: rgba(0, 0, 0, 0.1);
-    --file-hover: rgba(255, 255, 255, 0.1);
-    --folder-color: #3498db;
-    --executable-color: #27ae60;
-    --empty-color: rgba(0, 0, 0, 0.3);
-    --spinner-border: rgba(0, 0, 0, 0.1);
-    --message-bg: rgba(255, 255, 255, 0.1);
-  }
-
-  [data-theme="dark"] {
     /* Dark Mode Variables */
-    --bg-color: rgba(0, 0, 0, 0.05);
+    --bg-color: rgba(0, 0, 0, 0.1);
     --text-color: #f0f0f0;
-    --card-bg: rgba(0, 0, 0, 0.1);
+    --card-bg: rgba(0, 0, 0, 0.25);
     --card-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-    --menu-bg: rgba(0, 0, 0, 0.05);
-    --menu-border: rgba(255, 255, 255, 0.05);
+    --menu-bg: rgba(0, 0, 0, 0.1);
+    --menu-border: rgba(255, 255, 255, 0.15);
     --accent-color: #738adb;
     --launch-btn-bg: #2ecc71;
     --launch-btn-hover: #27ae60;
-    --input-bg: rgba(0, 0, 0, 0.1);
-    --input-border: rgba(255, 255, 255, 0.05);
-    --modal-overlay: rgba(0, 0, 0, 0.7);
-    --path-bg: rgba(0, 0, 0, 0.1);
-    --separator-color: rgba(255, 255, 255, 0.1);
-    --file-hover: rgba(255, 255, 255, 0.05);
+    --input-bg: rgba(0, 0, 0, 0.7);
+    --input-border: rgba(255, 255, 255, 0.15);
+    --modal-overlay: rgba(0, 0, 0, 0.8);
+    --path-bg: rgba(0, 0, 0, 0.25);
+    --separator-color: rgba(255, 255, 255, 0.15);
+    --file-hover: rgba(255, 255, 255, 0.1);
     --folder-color: #5dadec;
     --executable-color: #2ecc71;
-    --empty-color: rgba(255, 255, 255, 0.3);
-    --spinner-border: rgba(255, 255, 255, 0.1);
-    --message-bg: rgba(0, 0, 0, 0.1);
+    --empty-color: rgba(255, 255, 255, 0.4);
+    --spinner-border: rgba(255, 255, 255, 0.15);
+    --message-bg: rgba(0, 0, 0, 0.25);
   }
 
   :global(body) {
@@ -610,6 +608,12 @@
     backdrop-filter: blur(20px);
     overflow: hidden;
     outline: none;
+    transition: all 0.3s ease;
+  }
+
+  .app-container:not(:focus-within) {
+    opacity: 0.7;
+    background-color: rgba(0, 0, 0, 0.1);
   }
 
   .app-container:focus {
@@ -644,6 +648,7 @@
   }
 
   .paradigm-container {
+    position: relative;
     background-color: var(--card-bg);
     border-radius: 8px;
     padding: 1.2rem;
@@ -653,12 +658,13 @@
     overflow: hidden;
     width: 100%;
     max-width: 400px;
+    border: 1px solid var(--menu-border);
   }
 
   .version-panel {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 0.5rem;
     overflow: hidden;
   }
 
@@ -667,6 +673,8 @@
     justify-content: space-between;
     align-items: center;
     gap: 1rem;
+    position: relative;
+    padding: 4px 0;
   }
 
   .version-select-row {
@@ -676,8 +684,10 @@
   }
 
   .version-select-row label {
-    font-weight: 500;
+    font-weight: 600;
+    font-size: 1.1rem;
     min-width: 60px;
+    color: var(--text-color);
   }
 
   .version-select-row select {
@@ -688,13 +698,20 @@
     background-color: var(--input-bg);
     color: var(--text-color);
     backdrop-filter: blur(20px);
+    font-weight: 600;
+    font-size: 1.1rem;
   }
 
   .launch-btn {
-    padding: 0.5rem 1.5rem;
-    font-size: 1rem;
+    padding: 0.75rem 2rem;
+    font-size: 1.1rem;
+    font-weight: 600;
     white-space: nowrap;
-    background-color: rgba(39, 174, 96, 0.8);
+    background: linear-gradient(
+      135deg,
+      var(--launch-btn-bg),
+      var(--launch-btn-hover)
+    );
     color: white;
     border: none;
     border-radius: 8px;
@@ -702,52 +719,138 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 100px;
-    transition: all 0.2s;
+    min-width: 120px;
+    transition: all 0.2s ease;
     gap: 0.5rem;
     backdrop-filter: blur(10px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    position: relative;
+    overflow: visible;
+    margin: 4px 0;
+  }
+
+  .launch-btn::before {
+    content: "";
+    position: absolute;
+    top: -4px;
+    left: -4px;
+    right: -4px;
+    bottom: -4px;
+    background: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.1),
+      rgba(255, 255, 255, 0)
+    );
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    border-radius: 10px;
+    pointer-events: none;
   }
 
   .launch-btn:hover {
-    background-color: rgba(33, 150, 83, 0.9);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  .launch-btn:hover::before {
+    opacity: 1;
+  }
+
+  .launch-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   }
 
   .launch-btn:disabled {
-    background-color: rgba(149, 165, 166, 0.5);
+    background: linear-gradient(
+      135deg,
+      rgba(149, 165, 166, 0.5),
+      rgba(149, 165, 166, 0.3)
+    );
     cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
   }
 
   .enter-icon {
-    font-size: 0.9em;
-    opacity: 0.8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 0.25rem;
+    opacity: 0.9;
   }
 
-  .version-details {
-    background-color: var(--message-bg);
-    border-radius: 8px;
-    padding: 0.8rem;
-    backdrop-filter: blur(20px);
+  .enter-icon svg {
+    width: 16px;
+    height: 16px;
   }
 
   .path {
-    font-family: monospace;
+    font-family: "Consolas", "Monaco", "Courier New", monospace;
     background-color: var(--path-bg);
-    padding: 0.5rem;
-    border-radius: 4px;
+    padding: 0.8rem;
+    border-radius: 6px;
     word-break: break-all;
-    font-size: 0.8rem;
-    max-height: 40px;
-    overflow: hidden;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    max-height: 60px;
+    overflow: auto;
     backdrop-filter: blur(20px);
+    border: 1px solid var(--input-border);
+    margin-top: 0.5rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
   }
 
-  .message {
-    margin-top: 1rem;
-    padding: 0.75rem;
-    border-radius: 4px;
+  .path:hover {
+    background-color: var(--file-hover);
+    border-color: var(--accent-color);
+  }
+
+  .path code {
+    display: block;
+    white-space: pre-wrap;
+    color: var(--text-color);
+  }
+
+  .toast {
+    position: absolute;
+    bottom: 1rem;
+    left: 50%;
+    transform: translateX(-50%);
     background-color: var(--message-bg);
-    border-left: 4px solid var(--accent-color);
+    color: var(--text-color);
+    padding: 0.75rem 1.5rem;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     backdrop-filter: blur(20px);
+    border: 1px solid var(--input-border);
+    z-index: 100;
+    animation: slide-up 0.3s ease-out;
+  }
+
+  .toast.fade-out {
+    animation: fade-out 0.3s ease-out forwards;
+  }
+
+  @keyframes slide-up {
+    from {
+      transform: translate(-50%, 100%);
+      opacity: 0;
+    }
+    to {
+      transform: translate(-50%, 0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes fade-out {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
   }
 
   .browse-btn {

@@ -241,6 +241,20 @@ func (a *App) LaunchParadigm(executablePath string) bool {
 	return true
 }
 
+// BrowserOpenURL opens the given URL in the system's default browser or file explorer
+func (a *App) BrowserOpenURL(url string) bool {
+	log.Printf("Opening path: %s", url)
+	// Remove the file:/// prefix and convert forward slashes to backslashes
+	path := strings.ReplaceAll(strings.TrimPrefix(url, "file:///"), "/", "\\")
+	cmd := exec.Command("explorer.exe", path)
+	err := cmd.Start()
+	if err != nil {
+		log.Printf("Error opening path: %v", err)
+		return false
+	}
+	return true
+}
+
 // BrowseExecutable allows user to get files in a directory to help manually select
 func (a *App) BrowseDirectory(dirPath string) []string {
 	log.Printf("Browsing directory: %s", dirPath)

@@ -6,6 +6,8 @@ export function AddCustomParadigm(arg1:string):Promise<main.ParadigmVersion>;
 
 export function BrowseDirectory(arg1:string):Promise<Array<string>>;
 
+export function BrowserOpenURL(arg1:string):Promise<boolean>;
+
 export function GetDefaultParadigmPath():Promise<string>;
 
 export function LaunchParadigm(arg1:string):Promise<boolean>;

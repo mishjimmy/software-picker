@@ -10,6 +10,10 @@ export function BrowseDirectory(arg1) {
   return window['go']['main']['App']['BrowseDirectory'](arg1);
 }
 
+export function BrowserOpenURL(arg1) {
+  return window['go']['main']['App']['BrowserOpenURL'](arg1);
+}
+
 export function GetDefaultParadigmPath() {
   return window['go']['main']['App']['GetDefaultParadigmPath']();
 }
