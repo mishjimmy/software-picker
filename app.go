@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"embed"
 	"os"
 	"path/filepath"
 	"sort"
@@ -9,7 +10,18 @@ import (
 	"log"
 	"regexp"
 	"strings"
+
+	"github.com/wailsapp/wails/v2"
+	"github.com/wailsapp/wails/v2/pkg/options"
+	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	"github.com/wailsapp/wails/v2/pkg/options/windows"
+	"github.com/wailsapp/wails/v2/pkg/menu"
+	"github.com/wailsapp/wails/v2/pkg/menu/keys"
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
+
+//go:embed all:frontend/dist
+var assets embed.FS
 
 // ParadigmVersion represents a found Paradigm software version
 type ParadigmVersion struct {
@@ -21,7 +33,8 @@ type ParadigmVersion struct {
 
 // App struct
 type App struct {
-	ctx context.Context
+	ctx     context.Context
+	versions []ParadigmVersion
 }
 
 // NewApp creates a new App application struct
@@ -33,6 +46,10 @@ func NewApp() *App {
 // so we can call the runtime methods
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+	runtime.WindowShow(ctx)
+	
+	// Start keyboard monitoring
+	startKeyboardMonitor(ctx)
 }
 
 // AddCustomParadigm allows the user to manually add a Paradigm executable
@@ -284,4 +301,52 @@ func (a *App) BrowseDirectory(dirPath string) []string {
 	}
 	
 	return fileList
+}
+
+func main() {
+	// Create an instance of the app structure
+	app := NewApp()
+
+	// Create application menu
+	AppMenu := menu.NewMenu()
+	FileMenu := AppMenu.AddSubmenu("File")
+	FileMenu.AddText("&Refresh", keys.CmdOrCtrl("r"), func(_ *menu.CallbackData) {
+		// Refresh versions
+		app.ScanForParadigmVersions(app.GetDefaultParadigmPath())
+	})
+	FileMenu.AddSeparator()
+	FileMenu.AddText("&Quit", keys.CmdOrCtrl("q"), func(_ *menu.CallbackData) {
+		// Quit the application
+		os.Exit(0)
+	})
+
+	// Create application with options
+	err := wails.Run(&options.App{
+		Title:             "LDLauncher",
+		Frameless:          false,
+		Width:             500,
+		Height:            270,
+		MinWidth:          500,
+		MinHeight:         270,
+		DisableResize:     true,
+		Fullscreen:        false,
+		AssetServer: &assetserver.Options{
+			Assets: assets,
+		},
+		BackgroundColour: &options.RGBA{R: 0, G: 0, B: 0, A: 0},
+		OnStartup:        app.startup,
+		Menu:             AppMenu,
+		Windows: &windows.Options{
+			WebviewIsTransparent: true,
+			WindowIsTranslucent:  true,
+			BackdropType:         windows.Acrylic,
+		},
+		Bind: []interface{}{
+			app,
+		},
+	})
+
+	if err != nil {
+		println("Error:", err.Error())
+	}
 }

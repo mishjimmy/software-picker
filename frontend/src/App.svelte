@@ -29,6 +29,27 @@
   // For theme
   let darkMode = true; // Default to dark mode
 
+  let selectedVersionIndex = 0;
+  /** @type {HTMLSelectElement} */
+  let versionSelectRef;
+  let isWindowFocused = true;
+
+  // Focus trap function
+  const focusTrap = (e) => {
+    if (!isWindowFocused) {
+      const focusWindow = () => {
+        window.focus();
+        document.body.focus();
+        const versionSelect = document.getElementById("version-select");
+        if (versionSelect) {
+          versionSelect.focus();
+          isWindowFocused = true;
+        }
+      };
+      focusWindow();
+    }
+  };
+
   // Apply theme on component mount and when it changes
   $: if (darkMode !== undefined) {
     applyTheme();
@@ -45,12 +66,6 @@
       // Apply the theme
       applyTheme();
 
-      // Focus the window immediately
-      window.focus();
-
-      // Add keyboard event listener to the window with capture phase
-      window.addEventListener("keydown", handleKeyPress, true);
-
       // Get default ETC path
       defaultEtcPath = await GetDefaultParadigmPath();
 
@@ -59,23 +74,75 @@
         await scanForParadigm(defaultEtcPath);
       }
 
-      // Focus the version select after versions are loaded and DOM is rendered
-      setTimeout(() => {
-        if (paradigmVersions.length > 0) {
-          const versionSelect = document.getElementById("version-select");
-          if (versionSelect) {
-            versionSelect.focus();
-          }
+      // Add window focus event listeners
+      window.addEventListener("focus", handleWindowFocus);
+      window.addEventListener("blur", handleWindowBlur);
+
+      // Listen for keyboard events from Go backend
+      // @ts-ignore
+      if (window.runtime?.EventsOn) {
+        // @ts-ignore
+        window.runtime.EventsOn("keydown", (key) => {
+          // Create a synthetic event that matches the real keyboard event
+          const event = {
+            key,
+            preventDefault: () => {},
+            stopPropagation: () => {},
+          };
+          handleKeyPress(event);
+        });
+      }
+
+      // Force initial focus
+      const focusVersionSelect = () => {
+        // @ts-ignore
+        if (window.runtime?.WindowSetFocus) {
+          // @ts-ignore
+          window.runtime.WindowSetFocus();
         }
-      }, 100);
+        window.focus();
+        document.body.focus();
+        const versionSelect = document.getElementById("version-select");
+        if (versionSelect) {
+          versionSelect.focus();
+          isWindowFocused = true;
+          // Add a visual indicator that the field is focused
+          versionSelect.style.outline = "2px solid var(--accent-color)";
+          versionSelect.style.outlineOffset = "2px";
+        }
+      };
+
+      // Try to focus immediately
+      focusVersionSelect();
+
+      // Try again after a short delay
+      setTimeout(focusVersionSelect, 100);
+      setTimeout(focusVersionSelect, 500);
+      setTimeout(focusVersionSelect, 1000);
+
+      // Add window show event listener
+      // @ts-ignore
+      if (window.runtime?.EventsOn) {
+        // @ts-ignore
+        window.runtime.EventsOn("window:show", () => {
+          focusVersionSelect();
+        });
+      }
+
+      return () => {
+        window.removeEventListener("focus", handleWindowFocus);
+        window.removeEventListener("blur", handleWindowBlur);
+        // @ts-ignore
+        if (window.runtime?.EventsOff) {
+          // @ts-ignore
+          window.runtime.EventsOff("window:show");
+          // @ts-ignore
+          window.runtime.EventsOff("keydown");
+        }
+      };
     } catch (error) {
       showMessage("Error initializing: " + error);
     }
-
-    return () => {
-      // Cleanup keyboard event listener
-      window.removeEventListener("keydown", handleKeyPress, true);
-    };
   });
 
   function applyTheme() {
@@ -266,31 +333,48 @@
   }
 
   function handleKeyPress(event) {
-    // Only handle these keys if we have versions loaded
-    if (paradigmVersions.length === 0) {
-      return;
-    }
+    // Only handle keys if we have versions and window is focused
+    if (!paradigmVersions.length || !isWindowFocused) return;
 
     // Prevent default behavior for our keys
-    if (["Enter", "ArrowUp", "ArrowDown"].includes(event.key)) {
-      event.preventDefault();
-      event.stopPropagation();
+    if (["ArrowUp", "ArrowDown", "Enter", "Escape"].includes(event.key)) {
+      if (event.preventDefault) event.preventDefault();
+      if (event.stopPropagation) event.stopPropagation();
     }
 
-    if (event.key === "Enter") {
-      if (selectedVersion && selectedVersion.executablePath) {
-        launchParadigm(selectedVersion.executablePath);
-      }
-    } else if (event.key === "ArrowUp") {
-      const currentIndex = paradigmVersions.indexOf(selectedVersion);
-      if (currentIndex > 0) {
-        selectedVersion = paradigmVersions[currentIndex - 1];
-      }
-    } else if (event.key === "ArrowDown") {
-      const currentIndex = paradigmVersions.indexOf(selectedVersion);
-      if (currentIndex < paradigmVersions.length - 1) {
-        selectedVersion = paradigmVersions[currentIndex + 1];
-      }
+    switch (event.key) {
+      case "ArrowUp":
+        if (selectedVersionIndex > 0) {
+          selectedVersionIndex--;
+          selectedVersion = paradigmVersions[selectedVersionIndex];
+          const select = document.getElementById("version-select");
+          if (select instanceof HTMLSelectElement) {
+            select.selectedIndex = selectedVersionIndex;
+          }
+        }
+        break;
+      case "ArrowDown":
+        if (selectedVersionIndex < paradigmVersions.length - 1) {
+          selectedVersionIndex++;
+          selectedVersion = paradigmVersions[selectedVersionIndex];
+          const select = document.getElementById("version-select");
+          if (select instanceof HTMLSelectElement) {
+            select.selectedIndex = selectedVersionIndex;
+          }
+        }
+        break;
+      case "Enter":
+        if (selectedVersion && selectedVersion.executablePath) {
+          launchParadigm(selectedVersion.executablePath);
+        }
+        break;
+      case "Escape":
+        // @ts-ignore
+        if (window.runtime?.Quit) {
+          // @ts-ignore
+          window.runtime.Quit();
+        }
+        break;
     }
   }
 
@@ -320,13 +404,37 @@
     scanForParadigm(defaultEtcPath);
   }
 
-  // Remove window focus/blur handlers since we don't need the alerts
   function handleWindowFocus() {
-    window.focus();
+    isWindowFocused = true;
+    // Focus the version select when window gains focus
+    const versionSelect = document.getElementById("version-select");
+    if (versionSelect) {
+      // @ts-ignore
+      if (window.runtime?.WindowSetFocus) {
+        // @ts-ignore
+        window.runtime.WindowSetFocus();
+      }
+      versionSelect.focus();
+      versionSelect.style.outline = "2px solid var(--accent-color)";
+      versionSelect.style.outlineOffset = "2px";
+    }
   }
 
   function handleWindowBlur() {
-    window.focus();
+    isWindowFocused = false;
+    // Remove focus indicator when window loses focus
+    const versionSelect = document.getElementById("version-select");
+    if (versionSelect) {
+      versionSelect.style.outline = "none";
+    }
+  }
+
+  function handleTitleBarClick() {
+    isWindowFocused = true;
+    const versionSelect = document.getElementById("version-select");
+    if (versionSelect) {
+      versionSelect.focus();
+    }
   }
 </script>
 
@@ -334,32 +442,28 @@
   class="app-container"
   on:focus={handleWindowFocus}
   on:blur={handleWindowBlur}
-  on:click={() => {
-    window.focus();
-    handleWindowFocus();
-    // Focus the version select if it exists
-    const versionSelect = document.getElementById("version-select");
-    if (versionSelect) {
-      versionSelect.focus();
-    }
-  }}
-  on:keydown={handleKeyPress}
+  on:click={handleWindowFocus}
+  on:keydown={(e) => e.key === "Enter" && handleWindowFocus()}
   role="application"
-  tabindex="-1"
 >
+  <div
+    class="titlebar"
+    on:click={handleTitleBarClick}
+    on:keydown={(e) => e.key === "Enter" && handleTitleBarClick()}
+  >
+    <div class="titlebar-drag-region"></div>
+  </div>
   <div
     class="container"
     on:click={() => window.focus()}
     on:keydown={(e) => e.key === "Enter" && window.focus()}
     role="none"
-    tabindex="-1"
   >
     <div
       class="paradigm-container"
       on:click={() => window.focus()}
       on:keydown={(e) => e.key === "Enter" && window.focus()}
       role="none"
-      tabindex="-1"
     >
       {#if isLoading}
         <div class="loading">
@@ -372,12 +476,21 @@
           on:click={() => window.focus()}
           on:keydown={(e) => e.key === "Enter" && window.focus()}
           role="none"
-          tabindex="-1"
         >
           <div class="version-controls">
             <div class="version-select-row">
               <label for="version-select">Version:</label>
-              <select id="version-select" bind:value={selectedVersion}>
+              <select
+                id="version-select"
+                bind:value={selectedVersion}
+                on:change={(e) => {
+                  const target = e.target;
+                  if (target instanceof HTMLSelectElement) {
+                    selectedVersionIndex = target.selectedIndex;
+                  }
+                }}
+                bind:this={versionSelectRef}
+              >
                 {#each paradigmVersions as version}
                   <option value={version}>
                     {getDisplayVersion(version)}
@@ -413,6 +526,11 @@
             <div
               class="path"
               on:click={() =>
+                BrowserOpenURL(
+                  `file:///${selectedVersion.path.replace(/\\/g, "/")}`
+                )}
+              on:keydown={(e) =>
+                e.key === "Enter" &&
                 BrowserOpenURL(
                   `file:///${selectedVersion.path.replace(/\\/g, "/")}`
                 )}
@@ -460,17 +578,16 @@
 
         <div class="breadcrumb">
           {#each breadcrumbs as crumb, i}
-            <span
+            <button
               class="breadcrumb-item"
               on:click={() => navigateTo(crumb.path)}
               on:keydown={(e) => {
                 if (e.key === "Enter") navigateTo(crumb.path);
               }}
-              tabindex="0"
               role="button"
             >
               {crumb.name}
-            </span>
+            </button>
             {#if i < breadcrumbs.length - 1}
               <span class="separator">\</span>
             {/if}
@@ -482,7 +599,7 @@
             <div class="empty-folder">This folder is empty</div>
           {:else}
             {#each filesList as file}
-              <div
+              <button
                 class="file-item"
                 class:folder={file.endsWith("/")}
                 class:executable={file.toLowerCase().endsWith(".exe")}
@@ -490,7 +607,6 @@
                 on:keydown={(e) => {
                   if (e.key === "Enter") handleFileClick(file);
                 }}
-                tabindex="0"
                 role="button"
               >
                 <span class="file-icon"
@@ -501,7 +617,7 @@
                       : "📄"}</span
                 >
                 <span class="file-name">{getFilenameFromPath(file)}</span>
-              </div>
+              </button>
             {/each}
           {/if}
         </div>
@@ -514,45 +630,41 @@
   {/if}
 
   <div class="menu-bar" role="menubar">
-    <div
+    <button
       class="menu-item"
       role="menuitem"
-      tabindex="0"
       on:click={toggleFileMenu}
       on:keydown={(e) => e.key === "Enter" && toggleFileMenu()}
     >
       File
-    </div>
+    </button>
     {#if showFileMenu}
       <div class="menu-dropdown" role="menu">
-        <div
+        <button
           class="menu-dropdown-item"
           role="menuitem"
-          tabindex="0"
           on:click={toggleTheme}
           on:keydown={(e) => e.key === "Enter" && toggleTheme()}
         >
           Toggle Theme
-        </div>
+        </button>
         <div class="menu-separator"></div>
-        <div
+        <button
           class="menu-dropdown-item"
           role="menuitem"
-          tabindex="0"
           on:click={browseFiles}
           on:keydown={(e) => e.key === "Enter" && browseFiles()}
         >
           Browse Files
-        </div>
-        <div
+        </button>
+        <button
           class="menu-dropdown-item"
           role="menuitem"
-          tabindex="0"
           on:click={refreshVersions}
           on:keydown={(e) => e.key === "Enter" && refreshVersions()}
         >
           Refresh
-        </div>
+        </button>
       </div>
     {/if}
   </div>
@@ -700,6 +812,11 @@
     backdrop-filter: blur(20px);
     font-weight: 600;
     font-size: 1.1rem;
+  }
+
+  .version-select-row select:focus {
+    outline: 2px solid var(--accent-color);
+    outline-offset: 2px;
   }
 
   .launch-btn {
@@ -1031,8 +1148,22 @@
     display: none;
   }
 
-  .version-select-row select:focus {
-    outline: 2px solid var(--accent-color);
-    outline-offset: 2px;
+  .titlebar {
+    -webkit-app-region: drag;
+    height: 32px;
+    background: transparent;
+    user-select: none;
+    display: flex;
+    justify-content: flex-end;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+  }
+
+  .titlebar-drag-region {
+    flex: 1;
+    height: 100%;
   }
 </style>
